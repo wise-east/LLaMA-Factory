@@ -546,5 +546,15 @@
       "prompt": "content"
     },
     "folder": "python"
+  },
+  "speech_preference": {
+    "file_name": "speech_preference_llama_factory.json", 
+    "ranking": true, 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "chosen": "chosen",
+      "rejected": "rejected"
+    }
   }
 }
