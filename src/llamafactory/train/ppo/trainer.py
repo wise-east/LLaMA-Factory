@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import torch
 from accelerate.utils import DistributedDataParallelKwargs
+import textstat
 from tqdm import tqdm
 from transformers import GenerationConfig, Trainer, TrainerControl, TrainerState
 from transformers.optimization import get_scheduler
@@ -233,6 +234,9 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
                 try:
                     batch["query"] = self.tokenizer.batch_decode(queries, skip_special_tokens=True)
                     batch["response"] = self.tokenizer.batch_decode(responses, skip_special_tokens=True)
+                    # get output lengths 
+                    batch["response_length"] = [len(r.split()) for r in batch["response"]]
+                    batch["readability"] = [textstat.flesch_reading_ease(r) for r in batch["response"]]
                     self.log_stats(stats, batch, rewards)
                 except Exception:
                     logger.warning("Failed to save stats due to unknown errors.")

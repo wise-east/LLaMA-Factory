@@ -1,48 +1,52 @@
 ### model
 model_name_or_path: allenai/OLMo-7B-Instruct-hf
+reward_model: saves/olmo-7b-instruct/lora/reward/checkpoint-950
 
 ### method
-stage: rm
+stage: ppo
 do_train: true
 finetuning_type: lora
 lora_target: all
 
 ### ddp
 ddp_timeout: 180000000
-# deepspeed: examples/deepspeed/ds_z3_config.json
 
 ### dataset
-dataset: speech_preference
+dataset: speech_preference_ppo
 template: olmo
 cutoff_len: 1024
 overwrite_cache: true
 preprocessing_num_workers: 16
 
 ### output
-output_dir: saves/olmo-7b-instruct/lora/reward
-logging_steps: 10
+output_dir: saves/olmo-7b-instruct/lora/ppo_base-prompt
+logging_steps: 1
 plot_loss: true
 overwrite_output_dir: false
 
 ### train
-per_device_train_batch_size: 8
-gradient_accumulation_steps: 2
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 4
 learning_rate: 5.0e-6
-num_train_epochs: 10.0
+num_train_epochs: 3.0
 lr_scheduler_type: cosine
 warmup_ratio: 0.1
-bf16: true
-bf16_full_eval: true
-report_to: wandb
+fp16: true
+
+### generate
+max_new_tokens: 512
+top_k: 0
+top_p: 0.9
+temperature: 0.7
+report_to: wandb 
 
 ### eval
 val_size: 0.1
 per_device_eval_batch_size: 8
 eval_strategy: steps
-eval_steps: 50
+eval_steps: 5
+save_steps: 5
 save_total_limit: 3
 save_strategy: steps
-save_steps: 50
 greater_is_better: false
 metric_for_best_model: loss
-

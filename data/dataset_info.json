@@ -556,5 +556,29 @@
       "chosen": "chosen",
       "rejected": "rejected"
     }
+  },
+  "speech_preference_ppo": {
+    "file_name": "speech_preference_llama_factory_ppo.json",
+    "columns": {
+      "system": "system", 
+      "prompt": "instruction",
+      "response": "output"
+    }
+  },
+  "speech_preference_detailed_ppo": {
+    "file_name": "speech_preference_llama_factory_detailed_ppo.json",
+    "columns": {
+      "system": "system", 
+      "prompt": "instruction",
+      "response": "output"
+    }
+  },
+  "speech_preference_icl_ppo": {
+    "file_name": "speech_preference_llama_factory_icl_ppo.json",
+    "columns": {
+      "system": "system", 
+      "prompt": "instruction",
+      "response": "output"
+    }
   }
 }

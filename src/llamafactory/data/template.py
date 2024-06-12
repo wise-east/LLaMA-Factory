@@ -634,6 +634,7 @@ _register_template(
     name="falcon",
     format_user=StringFormatter(slots=["User: {{content}}\nFalcon:"]),
     format_separator=EmptyFormatter(slots=["\n"]),
+    format_system=StringFormatter(slots=["{{content}}"]),
     efficient_eos=True,
 )
 
