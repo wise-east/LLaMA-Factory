@@ -1,6 +1,6 @@
 ### model
 model_name_or_path: tiiuae/falcon-7b-instruct
-reward_model: saves/olmo-7b-instruct/lora/reward_epoch3
+reward_model: saves/falcon-7b-instruct/lora/reward/checkpoint-700
 
 ### method
 stage: ppo
@@ -13,21 +13,21 @@ ddp_timeout: 180000000
 
 ### dataset
 dataset: speech_preference_ppo
-template: olmo
+template: falcon
 cutoff_len: 1024
 overwrite_cache: true
 preprocessing_num_workers: 16
 
 ### output
-output_dir: saves/olmo-7b-instruct/lora/ppo
-logging_steps: 10
+output_dir: saves/falcon-7b-instruct/lora/ppo-base
+logging_steps: 1
 plot_loss: true
 overwrite_output_dir: false
 
 ### train
 per_device_train_batch_size: 8
 gradient_accumulation_steps: 2
-learning_rate: 1.0e-6
+learning_rate: 5.0e-6
 num_train_epochs: 3.0
 lr_scheduler_type: cosine
 warmup_ratio: 0.1
@@ -44,8 +44,8 @@ temperature: 0.7
 val_size: 0.1
 per_device_eval_batch_size: 8
 eval_strategy: steps
-eval_steps: 20
-save_steps: 20
+eval_steps: 5
+save_steps: 5
 save_total_limit: 3
 save_strategy: steps
 greater_is_better: false

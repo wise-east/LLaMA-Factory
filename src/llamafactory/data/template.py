@@ -634,7 +634,7 @@ _register_template(
     name="falcon",
     format_user=StringFormatter(slots=["User: {{content}}\nFalcon:"]),
     format_separator=EmptyFormatter(slots=["\n"]),
-    format_system=StringFormatter(slots=["{{content}}"]),
+    format_system=StringFormatter(slots=["{{content}}\n\n"]),
     efficient_eos=True,
 )
 
@@ -744,15 +744,15 @@ _register_template(
 _register_template(
     name="mistral",
     format_user=StringFormatter(slots=["[INST] {{content}} [/INST]"]),
-    format_system=StringFormatter(slots=[{"bos_token"}, "{{content}}"]),
+    format_system=StringFormatter(slots=[{"bos_token"}, "{{content}} "]),
     force_system=True,
 )
 
 
 _register_template(
     name="olmo",
-    format_user=StringFormatter(slots=["<|user|>\n{{content}}<|assistant|>\n"]),
-    format_system=StringFormatter(slots=[{"eos_token"}, "{{content}}"]),
+    format_user=StringFormatter(slots=["<|user|>\n{{content}} <|assistant|>\n"]),
+    format_system=StringFormatter(slots=[{"eos_token"}, "{{content}}\n"]),
     force_system=True,
 )
 

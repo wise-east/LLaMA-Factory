@@ -547,8 +547,28 @@
     },
     "folder": "python"
   },
-  "speech_preference": {
+  "speech_preference_dpo": {
     "file_name": "speech_preference_llama_factory.json", 
+    "ranking": true, 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "chosen": "chosen",
+      "rejected": "rejected"
+    }
+  },
+  "speech_preference_detailed_dpo": {
+    "file_name": "speech_preference_llama_factory_detailed_dpo.json", 
+    "ranking": true, 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "chosen": "chosen",
+      "rejected": "rejected"
+    }
+  },
+  "speech_preference_icl_dpo": {
+    "file_name": "speech_preference_llama_factory_icl_dpo.json", 
     "ranking": true, 
     "formatting": "sharegpt",
     "columns": {

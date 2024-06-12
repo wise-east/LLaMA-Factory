@@ -21,7 +21,6 @@ preprocessing_num_workers: 16
 ### output
 output_dir: saves/falcon-7b-instruct/lora/reward
 logging_steps: 10
-save_steps: 50
 plot_loss: true
 overwrite_output_dir: false
 
