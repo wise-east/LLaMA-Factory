@@ -3,8 +3,12 @@ import os
 import sys
 from types import MethodType
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from contextlib import contextmanager, nullcontext
+from rich.console import Console
+from rich.table import Table
 
 import torch
+from torch.utils.data import DataLoader
 from accelerate.utils import DistributedDataParallelKwargs
 import textstat
 from tqdm import tqdm
@@ -13,6 +17,7 @@ from transformers.optimization import get_scheduler
 from transformers.trainer_pt_utils import remove_dummy_checkpoint
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 from transformers.utils import SAFE_WEIGHTS_NAME, WEIGHTS_NAME
+from transformers.trainer_utils import EvalLoopOutput
 from trl import PPOConfig, PPOTrainer
 from trl.core import PPODecorators, logprobs_from_logits
 from trl.models.utils import unwrap_model_for_generation
@@ -22,7 +27,8 @@ from ...extras.logging import get_logger
 from ...extras.misc import AverageMeter, count_parameters, get_current_device, get_logits_processor
 from ..trainer_utils import create_custom_optimzer, create_custom_scheduler
 from .ppo_utils import dump_layernorm, get_rewards_from_server, replace_model, restore_layernorm
-
+import random
+import wandb
 
 if TYPE_CHECKING:
     from datasets import Dataset
@@ -60,6 +66,7 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
         processor: Optional["ProcessorMixin"],
         dataset: "Dataset",
         data_collator: "DataCollatorWithPadding",
+        generate_during_eval: bool = True,
     ):
         backward_batch_size = training_args.per_device_train_batch_size * training_args.gradient_accumulation_steps
         ppo_config = PPOConfig(
@@ -122,6 +129,7 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
             **generating_args.to_dict(),
         )
 
+        self.generate_during_eval = generate_during_eval
         self.state = TrainerState()
         self.control = TrainerControl()
         self.is_deepspeed_enabled = getattr(self.accelerator.state, "deepspeed_plugin", None) is not None
@@ -216,6 +224,7 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
             queries, responses, rewards = [], [], []
             for idx in range(0, self.config.batch_size, self.config.mini_batch_size):
                 mini_batch_queries, mini_batch_responses = self.get_inputs(
+                    self.model,
                     batch[idx : idx + self.config.mini_batch_size]
                 )
                 mini_batch_rewards = self.get_rewards(mini_batch_queries, mini_batch_responses)
@@ -313,7 +322,7 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
         return lr_scheduler
 
     @torch.no_grad()
-    def get_inputs(self, batch: Dict[str, "torch.Tensor"]) -> Tuple[List["torch.Tensor"], List["torch.Tensor"]]:
+    def get_inputs(self, model, batch: Dict[str, "torch.Tensor"]) -> Tuple[List["torch.Tensor"], List["torch.Tensor"]]:
         r"""
         Generates model's responses given queries.
         """
@@ -322,8 +331,8 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
             for k, v in batch.items():
                 batch[k] = v[:, start_index:]
 
-        with unwrap_model_for_generation(self.model, self.accelerator) as unwrapped_model:
-            unwrapped_model = self.accelerator.unwrap_model(self.model)  # issue in trl v0.8.6
+        with unwrap_model_for_generation(model, self.accelerator) as unwrapped_model:
+            unwrapped_model = self.accelerator.unwrap_model(model)  # issue in trl v0.8.6
             if self.model_args.upcast_layernorm:
                 layernorm_params = dump_layernorm(unwrapped_model)
 
@@ -494,3 +503,74 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
         if self.processor is not None and self.args.should_save:
             output_dir = output_dir if output_dir is not None else self.args.output_dir
             getattr(self.processor, "image_processor").save_pretrained(output_dir)
+
+    def evaluation_loop(
+        self,
+        dataloader: DataLoader,
+        description: str,
+        prediction_loss_only: Optional[bool] = None,
+        ignore_keys: Optional[List[str]] = None,
+        metric_key_prefix: str = "eval",
+    ) -> EvalLoopOutput:
+        """
+        Overriding built-in evaluation loop to store metrics for each batch.
+        Prediction/evaluation loop, shared by `Trainer.evaluate()` and `Trainer.predict()`.
+
+        Works both with or without labels.
+        """
+
+        # Sample and save to game log if requested (for one batch to save time)
+        if self.generate_during_eval:
+            # Generate random indices within the range of the total number of samples
+            num_samples = len(dataloader.dataset)
+            random.seed(42)
+            random_indices = random.sample(range(num_samples), k=20)
+
+            # Use dataloader.dataset.select to get the random batch without iterating over the DataLoader
+            random_batch_dataset = dataloader.dataset.select(random_indices)
+            random_batch = self.data_collator(random_batch_dataset)
+            random_batch = self._prepare_inputs(random_batch)
+
+            policy_output = self.get_inputs(self.model, random_batch)
+            ref_output = self.get_inputs(self.ref_model, random_batch)
+
+            policy_rewards = self.get_rewards(policy_output[0], policy_output[1])
+            ref_rewards = self.get_rewards(ref_output[0], ref_output[1])
+
+            policy_output_decoded = self.tokenizer.batch_decode(policy_output[1], skip_special_tokens=True)
+            ref_output_decoded = self.tokenizer.batch_decode(ref_output[1], skip_special_tokens=True)
+
+            table = Table(title="# Evaluation results")
+            table.add_column("Prompt", style="cyan")
+            table.add_column("Policy", style="magenta")
+            table.add_column("Policy Reward", style="magenta")
+            table.add_column("Ref Model", style="green")
+            table.add_column("Ref Reward", style="green")
+
+            for prompt, pol, ref in zip(random_batch["prompt"], policy_output_decoded, ref_output_decoded):
+                table.add_row(prompt, pol, ref)
+            
+            console = Console()
+            console.print(table)
+
+            self.log(
+                {
+                    "game_log": wandb.Table(
+                        columns=["Prompt", "Policy", "Policy Reward", "Ref Model", "Ref Reward"],
+                        rows=[
+                            [prompt, pol, pol_reward, ref, ref_reward ]
+                            for prompt, pol, pol_reward, ref, ref_reward in zip(
+                                random_batch["prompt"], policy_output_decoded, policy_rewards, ref_output_decoded, ref_rewards
+                            )
+                        ],
+                    )
+                }
+            )
+            self.state.log_history.pop()
+
+        # Base evaluation
+        initial_output = super().evaluation_loop(
+            dataloader, description, prediction_loss_only, ignore_keys, metric_key_prefix
+        )
+
+        return initial_output

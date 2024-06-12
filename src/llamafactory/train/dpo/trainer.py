@@ -27,6 +27,7 @@ class CustomDPOTrainer(DPOTrainer):
         finetuning_args: "FinetuningArguments",
         processor: Optional["ProcessorMixin"],
         disable_dropout: bool = True,
+        generate_during_eval: bool =True,
         **kwargs,
     ):
         if disable_dropout:
@@ -38,7 +39,7 @@ class CustomDPOTrainer(DPOTrainer):
         self.processor = processor
         self.reference_free = False
         self.use_dpo_data_collator = True  # hack to avoid warning
-        self.generate_during_eval = False  # disable at evaluation
+        self.generate_during_eval = generate_during_eval  # disable at evaluation
         self.label_pad_token_id = IGNORE_INDEX
         self.padding_value = 0
         self.is_encoder_decoder = model.config.is_encoder_decoder

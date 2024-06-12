@@ -51,6 +51,11 @@ class GeneratingArguments:
         metadata={"help": "Default system message to use in chat completion."},
     )
 
+    generate_during_eval: bool = field(
+        default=True,
+        metadata={"help": "Whether or not to generate during evaluation."},
+    )
+
     def to_dict(self) -> Dict[str, Any]:
         args = asdict(self)
         if args.get("max_new_tokens", -1) > 0:
