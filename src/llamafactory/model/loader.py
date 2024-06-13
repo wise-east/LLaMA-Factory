@@ -34,8 +34,10 @@ def _get_init_kwargs(model_args: "ModelArguments") -> Dict[str, Any]:
     Note: including inplace operation of model_args.
     """
     model_args.model_name_or_path = try_download_model_from_ms(model_args)
+    trust_remote_code = False if "falcon" in model_args.model_name_or_path else True
+
     return {
-        "trust_remote_code": True,
+        "trust_remote_code": trust_remote_code,
         "cache_dir": model_args.cache_dir,
         "revision": model_args.model_revision,
         "token": model_args.hf_hub_token,

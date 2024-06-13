@@ -1,7 +1,7 @@
 from collections import defaultdict
 from contextlib import nullcontext
 from types import MethodType
-from typing import TYPE_CHECKING, Dict, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Literal, Optional, Tuple, Union, List
 
 import torch
 import torch.nn.functional as F
@@ -11,7 +11,6 @@ from trl.trainer import disable_dropout_in_model
 
 from ...extras.constants import IGNORE_INDEX
 from ..trainer_utils import create_custom_optimzer, create_custom_scheduler, get_batch_logps, get_ref_context
-
 
 if TYPE_CHECKING:
     from transformers import PreTrainedModel, ProcessorMixin
@@ -27,7 +26,8 @@ class CustomDPOTrainer(DPOTrainer):
         finetuning_args: "FinetuningArguments",
         processor: Optional["ProcessorMixin"],
         disable_dropout: bool = True,
-        generate_during_eval: bool =True,
+        generate_during_eval: bool =False,
+        max_length: int = 2048,
         **kwargs,
     ):
         if disable_dropout:
@@ -39,7 +39,7 @@ class CustomDPOTrainer(DPOTrainer):
         self.processor = processor
         self.reference_free = False
         self.use_dpo_data_collator = True  # hack to avoid warning
-        self.generate_during_eval = generate_during_eval  # disable at evaluation
+        self.generate_during_eval = generate_during_eval  # disable at evaluation, something's buggy with it going through a loop
         self.label_pad_token_id = IGNORE_INDEX
         self.padding_value = 0
         self.is_encoder_decoder = model.config.is_encoder_decoder
@@ -57,6 +57,9 @@ class CustomDPOTrainer(DPOTrainer):
         self.ftx_gamma = finetuning_args.pref_ftx
         self.label_smoothing = finetuning_args.dpo_label_smoothing
         self.simpo_gamma = finetuning_args.simpo_gamma
+
+        # generation hyperparams
+        self.max_length = max_length
 
         Trainer.__init__(self, model=model, **kwargs)
         if not hasattr(self, "accelerator"):
