@@ -752,7 +752,7 @@ _register_template(
 _register_template(
     name="olmo",
     format_user=StringFormatter(slots=["<|user|>\n{{content}} <|assistant|>\n"]),
-    format_system=StringFormatter(slots=[{"eos_token"}, "{{content}}\n"]),
+    format_system=StringFormatter(slots=[{"eos_token"}, "{{content}} "]),
     force_system=True,
 )
 

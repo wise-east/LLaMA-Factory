@@ -58,8 +58,8 @@ def run_ppo(
     if training_args.do_train:
         ppo_trainer.ppo_train(resume_from_checkpoint=training_args.resume_from_checkpoint)
         ppo_trainer.save_model()
-        if training_args.should_save:
-            fix_valuehead_checkpoint(model, training_args.output_dir, training_args.save_safetensors)
+        # if training_args.should_save:
+        #     fix_valuehead_checkpoint(model, training_args.output_dir, training_args.save_safetensors)
         ppo_trainer.save_state()  # must be called after save_model to have a folder
         if ppo_trainer.is_world_process_zero() and finetuning_args.plot_loss:
             plot_loss(training_args.output_dir, keys=["loss", "reward"])

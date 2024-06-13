@@ -14,6 +14,7 @@ import textstat
 from tqdm import tqdm
 from transformers import GenerationConfig, Trainer, TrainerControl, TrainerState
 from transformers.optimization import get_scheduler
+from transformers.trainer import TRAINING_ARGS_NAME
 from transformers.trainer_pt_utils import remove_dummy_checkpoint
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 from transformers.utils import SAFE_WEIGHTS_NAME, WEIGHTS_NAME
@@ -271,9 +272,9 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
                 self.save_model(
                     os.path.join(self.args.output_dir, "{}-{}".format(PREFIX_CHECKPOINT_DIR, self.state.global_step))
                 )
-                self.save_callback.on_save(
-                    self.args, self.state, self.control, model=self.accelerator.unwrap_model(self.model)
-                )
+                # self.save_callback.on_save(
+                #     self.args, self.state, self.control, model=self.accelerator.unwrap_model(self.model)
+                # )
 
             if self.control.should_epoch_stop or self.control.should_training_stop:
                 break
@@ -503,6 +504,42 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
         if self.processor is not None and self.args.should_save:
             output_dir = output_dir if output_dir is not None else self.args.output_dir
             getattr(self.processor, "image_processor").save_pretrained(output_dir)
+
+    def _save(self, output_dir: Optional[str] = None, state_dict=None):
+        # If we are executing this function, we are the process zero, so we don't check for that.
+        output_dir = output_dir if output_dir is not None else self.args.output_dir
+        os.makedirs(output_dir, exist_ok=True)
+        logger.info(f"Saving model checkpoint to {output_dir}")
+        
+        # supported_classes = (PreTrainedModel,) if not is_peft_available() else (PreTrainedModel, PeftModel)
+        # Save a trained model and configuration using `save_pretrained()`.
+        # They can then be reloaded using `from_pretrained()`
+        # if not isinstance(self.model, supported_classes):
+        #     if state_dict is None:
+        #         state_dict = self.model.state_dict()
+
+        #     if isinstance(self.accelerator.unwrap_model(self.model), supported_classes):
+        #         self.accelerator.unwrap_model(self.model).save_pretrained(
+        #             output_dir, state_dict=state_dict, safe_serialization=self.args.save_safetensors
+        #         )
+        #     else:
+        #         logger.info("Trainer.model is not a `PreTrainedModel`, only saving its state dict.")
+        #         if self.args.save_safetensors:
+        #             safetensors.torch.save_file(
+        #                 state_dict, os.path.join(output_dir, SAFE_WEIGHTS_NAME), metadata={"format": "pt"}
+        #             )
+        #         else:
+        #             torch.save(state_dict, os.path.join(output_dir, WEIGHTS_NAME))
+        # else:
+        self.accelerator.unwrap_model(self.model).save_pretrained(
+            output_dir, state_dict=state_dict, safe_serialization=self.args.save_safetensors
+        )
+
+        if self.tokenizer is not None:
+            self.tokenizer.save_pretrained(output_dir)
+
+        # Good practice: save your training arguments together with the trained model
+        torch.save(self.args, os.path.join(output_dir, TRAINING_ARGS_NAME))
 
     def evaluation_loop(
         self,
