@@ -228,6 +228,16 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
                     self.model,
                     batch[idx : idx + self.config.mini_batch_size]
                 )
+                # try: 
+                #     # if model is falcon, drop anything that comes after "User"
+                #     if "falcon" in self.model_args.model_name_or_path:
+                #         decoded_responses = self.tokenizer.batch_decode(mini_batch_responses, skip_special_tokens=True)
+                #         decoded_responses = [r.split("User")[0].strip() for r in decoded_responses]
+                #         mini_batch_responses = [self.tokenizer(response, return_tensors="pt")["input_ids"][0] for response in decoded_responses]
+                # except Exception as e:
+                #     logger.warning(f"Failed to drop anything that comes after 'User' due to {e}")
+                #     logger.info(f"Decoded responses: {decoded_responses}")
+
                 mini_batch_rewards = self.get_rewards(mini_batch_queries, mini_batch_responses)
                 queries.extend(mini_batch_queries)
                 responses.extend(mini_batch_responses)
@@ -267,6 +277,9 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
                 self.log_callback.on_log(self.args, self.state, self.control)
                 loss_meter.reset()
                 reward_meter.reset()
+
+            # if (step + 1) % self.args.eval_steps == 0:  # save checkpoint
+            #     self.evaluation_loop(self.dataloader, "eval")
 
             if (step + 1) % self.args.save_steps == 0:  # save checkpoint
                 self.save_model(
@@ -554,6 +567,8 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
         Prediction/evaluation loop, shared by `Trainer.evaluate()` and `Trainer.predict()`.
 
         Works both with or without labels.
+
+        TODO: Buggy, keeps on looping when generating outputs 
         """
 
         # Sample and save to game log if requested (for one batch to save time)
@@ -564,28 +579,21 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
             random_indices = random.sample(range(num_samples), k=20)
 
             # Use dataloader.dataset.select to get the random batch without iterating over the DataLoader
-            random_batch_dataset = dataloader.dataset.select(random_indices)
-            random_batch = self.data_collator(random_batch_dataset)
-            random_batch = self._prepare_inputs(random_batch)
+            dataiter = iter(self.dataloader)
+            random_batch = next(dataiter)
 
             policy_output = self.get_inputs(self.model, random_batch)
-            ref_output = self.get_inputs(self.ref_model, random_batch)
-
             policy_rewards = self.get_rewards(policy_output[0], policy_output[1])
-            ref_rewards = self.get_rewards(ref_output[0], ref_output[1])
 
             policy_output_decoded = self.tokenizer.batch_decode(policy_output[1], skip_special_tokens=True)
-            ref_output_decoded = self.tokenizer.batch_decode(ref_output[1], skip_special_tokens=True)
 
             table = Table(title="# Evaluation results")
             table.add_column("Prompt", style="cyan")
             table.add_column("Policy", style="magenta")
             table.add_column("Policy Reward", style="magenta")
-            table.add_column("Ref Model", style="green")
-            table.add_column("Ref Reward", style="green")
 
-            for prompt, pol, ref in zip(random_batch["prompt"], policy_output_decoded, ref_output_decoded):
-                table.add_row(prompt, pol, ref)
+            for prompt, pol, pol_reward in zip(random_batch["prompt"], policy_output_decoded, policy_rewards):
+                table.add_row(prompt, pol, pol_reward)
             
             console = Console()
             console.print(table)
@@ -595,9 +603,9 @@ class CustomPPOTrainer(PPOTrainer, Trainer):
                     "game_log": wandb.Table(
                         columns=["Prompt", "Policy", "Policy Reward", "Ref Model", "Ref Reward"],
                         rows=[
-                            [prompt, pol, pol_reward, ref, ref_reward ]
-                            for prompt, pol, pol_reward, ref, ref_reward in zip(
-                                random_batch["prompt"], policy_output_decoded, policy_rewards, ref_output_decoded, ref_rewards
+                            [prompt, pol, pol_reward]
+                            for prompt, pol, pol_reward in zip(
+                                random_batch["prompt"], policy_output_decoded, policy_rewards
                             )
                         ],
                     )

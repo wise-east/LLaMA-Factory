@@ -9,7 +9,7 @@ finetuning_type: lora
 lora_target: all
 
 ### ddp
-ddp_timeout: 180000000
+# ddp_timeout: 180000000
 
 ### dataset
 dataset: speech_preference_ppo

@@ -15,12 +15,11 @@ ddp_timeout: 180000000
 dataset: speech_preference_detailed_ppo
 template: olmo
 cutoff_len: 1024
-max_samples: 10
 overwrite_cache: true
 preprocessing_num_workers: 16
 
 ### output
-output_dir: saves/olmo-7b-instruct/lora/ppo_detailed-prompt
+output_dir: saves/olmo-7b-instruct/lora/ppo-detailed
 logging_steps: 1
 plot_loss: true
 overwrite_output_dir: false
@@ -43,7 +42,6 @@ report_to: wandb
 
 ### eval
 val_size: 0.1
-per_device_eval_batch_size: 8
 eval_strategy: steps
 eval_steps: 5
 save_steps: 5
