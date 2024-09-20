@@ -24,3 +24,9 @@ wget --recursive --no-parent https://speechllm-emnlp2024.s3.us-west-2.amazonaws.
 ## Commands 
 
 Refer to `speechllm_finetuning_commands.sh` for the commands to train models that were included in our paper. 
+
+Alternatively, to replicate our results, you can download the trained model weights, which will get saved in to the `saves` directory. Make sure that `LLaMA-Factory` is in the same directory as `SpeechLLM`'s directory. 
+
+```bash 
+wget --recursive --no-parent https://speechllm-emnlp2024.s3.us-west-2.amazonaws.com/llamafactory_models/ -P saves/
+```
