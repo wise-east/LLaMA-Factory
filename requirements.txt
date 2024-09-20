@@ -17,3 +17,5 @@ matplotlib>=3.7.0
 fire
 packaging
 pyyaml
+boto3
+ai2-olmo
